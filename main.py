@@ -403,12 +403,12 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] != "assis
                     st.session_state.messages.append({"role": "assistant", "content": response})
                     
                 except AllModelsExhausted as e:
-                    # 错误时清空加载状态
+                    # Clear loading status on error
                     status_placeholder.empty()
                     error_msg = str(e)
                     st.error(f"❌ {error_msg}")
                 except Exception as e:
-                    # 错误时恢复语言切换
+                    # Restore language toggle on error
                     st.session_state.is_processing = False
                     status_placeholder.empty()
                     import traceback
