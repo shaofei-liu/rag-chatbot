@@ -1,0 +1,31 @@
+name: Keep Hugging Face Space Awake
+
+on:
+  schedule:
+    # Run every 6 hours to prevent Space from sleeping
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping RAG Chatbot Space
+        run: |
+          # Ping the HuggingFace Space URL to keep it awake
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://huggingface.co/spaces/WilliamCass/rag-chatbot)
+          echo "HTTP Status: $response"
+          
+          if [ "$response" = "200" ]; then
+            echo "✅ Space is awake and responding!"
+          else
+            echo "⚠️ Space returned status: $response"
+          fi
+          
+          echo "Keep-alive ping completed at $(date)"
+      
+      - name: Log Activity
+        run: |
+          echo "Scheduled keep-alive job completed successfully"
+          echo "Next run: 6 hours"

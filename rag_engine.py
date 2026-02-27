@@ -32,12 +32,27 @@ embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     model_kwargs={"device": "cpu"}
 )
-vector_db = Chroma(persist_directory="chroma", embedding_function=embeddings)
-# Use MMR (Maximal Marginal Relevance) for better retrieval diversity
-retriever = vector_db.as_retriever(
-    search_type="mmr",
-    search_kwargs={"k": 5, "fetch_k": 20}
-)
+
+# Lazy initialization - will be set after knowledge base is ready
+vector_db = None
+retriever = None
+
+def init_vector_db():
+    """Initialize vector database (call after knowledge base is ready)."""
+    global vector_db, retriever
+    print("[RAG] Initializing vector_db from chroma...")
+    try:
+        vector_db = Chroma(persist_directory="chroma", embedding_function=embeddings)
+        retriever = vector_db.as_retriever(
+            search_type="mmr",
+            search_kwargs={"k": 5, "fetch_k": 20}
+        )
+        print(f"[RAG] ✓ Vector DB initialized with {vector_db._collection.count()} documents")
+        return True
+    except Exception as e:
+        print(f"[RAG] ✗ Failed to initialize vector DB: {e}")
+        return False
+
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0.5, api_key=api_key)
 
 DEFAULT_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
@@ -247,3 +262,4 @@ def execute_query(query_text: str, language: str = "en", model_order: list = Non
         print(f"RAG Error: {str(e)}")
         print(traceback.format_exc())
         raise
+

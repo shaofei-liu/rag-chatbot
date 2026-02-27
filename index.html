@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shaofei's RAG Chatbot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        select {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        select option {
+            background: #333;
+            color: white;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .chat-frame {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: #f0f0f0;
+            border-radius: 10px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: #ddd;
+            border-radius: 10px;
+        }
+
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: #bbb;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.assistant .message-content {
+            background: #f0f4ff;
+            border-left: 3px solid #667eea;
+            color: #333;
+        }
+
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+            border-radius: 12px 0 12px 12px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .loading-indicator {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            color: #667eea;
+        }
+
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: bounce 1.4s infinite;
+        }
+
+        .loading-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .loading-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                opacity: 0.3;
+                transform: translateY(0);
+            }
+            40% {
+                opacity: 1;
+                transform: translateY(-8px);
+            }
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            color: #999;
+            font-size: 16px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            opacity: 0.5;
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: none;
+            max-height: 100px;
+            transition: all 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .char-count {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .send-btn {
+            background: #667eea;
+            color: white;
+            flex: 0 0 auto;
+            min-width: 60px;
+            height: 44px;
+            padding: 0 16px;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: #556ddb;
+            transform: translateY(-2px);
+        }
+
+        .send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .clear-btn {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .clear-btn:hover {
+            background: #efefef;
+        }
+
+        .status {
+            padding: 10px 15px;
+            background: #f0f4ff;
+            border: 1px solid #e0e0ff;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #667eea;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .error {
+            background: #ffe0e0 !important;
+            color: #d32f2f !important;
+            border-color: #ffcccc !important;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .header-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .message-content {
+                max-width: 90%;
+            }
+
+            .input-area {
+                flex-direction: column;
+            }
+
+            .send-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>� Shaofei's Portfolio</h1>
+        <div class="header-controls">
+            <select id="languageSelect">
+                <option value="en">🇬🇧 English</option>
+                <option value="de">🇩🇪 Deutsch</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="chat-frame">
+            <div class="messages" id="messages">
+                <div class="empty-state" id="welcomeMessage">
+                    <div class="empty-state-icon">👋</div>
+                    <div id="welcomeText"></div>
+                    <div id="welcomeExample" style="margin-top: 10px; font-size: 14px; color: #666; font-style: italic;"></div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="messageInput" 
+                        placeholder="Ask me... / Frag mich..."
+                        maxlength="1000"
+                        rows="2"
+                    ></textarea>
+                    <div class="char-count"><span id="charCount">0</span> / 1000</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button class="send-btn" id="sendBtn">Send</button>
+                    <button class="clear-btn" id="clearBtn">Clear</button>
+                </div>
+            </div>
+
+            <div class="status" id="status"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'http://localhost:8000';
+        const WS_PROTOCOL = 'ws://';
+        const API_PROTOCOL = 'http://';
+
+        // Greetings (matching Streamlit backup version)
+        const greetings = {
+            en: {
+                main: "👋 **Hello! I'm Shaofei's AI Assistant.**\n\nI'm powered by advanced AI models and a Retrieval-Augmented Generation system. I can answer questions about Shaofei's professional background, technical skills, education, and experience. Feel free to ask me anything!",
+                example: "*Example: What did you study? What sports do you like?*"
+            },
+            de: {
+                main: "👋 **Hallo! Ich bin Shaofeis KI-Assistent.**\n\nIch werde von fortschrittlichen KI-Modellen und einem Retrieval-Augmented Generation-System betrieben. Ich kann Fragen zu Shaofeis beruflichem Hintergrund, technischen Fähigkeiten, Bildung und Erfahrung beantworten. Frag mich gerne alles!",
+                example: "*Beispiel: Was hast Du studiert? Welche Sportarten magst Du?*"
+            }
+        };
+
+        // Get elements
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const languageSelect = document.getElementById('languageSelect');
+        const charCount = document.getElementById('charCount');
+        const statusEl = document.getElementById('status');
+
+        // State
+        let sessionId = null;
+        let ws = null;
+        let isConnected = false;
+
+        // Initialize
+        async function init() {
+            // Check if we have a stored session ID
+            sessionId = localStorage.getItem('chatSessionId');
+            if (!sessionId) {
+                const response = await fetch(`${API_BASE_URL}/session/create`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                sessionId = data.session_id;
+                localStorage.setItem('chatSessionId', sessionId);
+            }
+
+            // Load saved language
+            const savedLanguage = localStorage.getItem('chatLanguage') || 'en';
+            
+            languageSelect.value = savedLanguage;
+            
+            // Update welcome message
+            updateWelcomeMessage(savedLanguage);
+
+            // Connect WebSocket
+            connectWebSocket();
+
+            // Load conversation history
+            loadHistory();
+        }
+        
+        // Update welcome message
+        function updateWelcomeMessage(language) {
+            const welcomeText = document.getElementById('welcomeText');
+            const welcomeExample = document.getElementById('welcomeExample');
+            if (welcomeText && greetings[language]) {
+                welcomeText.textContent = greetings[language].main;
+                welcomeExample.textContent = greetings[language].example;
+            }
+        }
+
+        // Connect WebSocket
+        function connectWebSocket() {
+            const wsUrl = `${WS_PROTOCOL}${window.location.host}/ws/chat/${sessionId}`;
+            console.log('Connecting to WebSocket:', wsUrl);
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                isConnected = true;
+                sendBtn.disabled = false;
+                showStatus('Connected ✓', false);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                showStatus('Connection error', true);
+                sendBtn.disabled = true;
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                isConnected = false;
+                sendBtn.disabled = true;
+                setTimeout(connectWebSocket, 3000); // Reconnect after 3 seconds
+            };
+        }
+
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            if (data.type === 'start') {
+                // Clear empty state if present
+                if (messagesContainer.querySelector('.empty-state')) {
+                    messagesContainer.innerHTML = '';
+                }
+
+                // Add user message
+                addMessage(data.user_message, 'user');
+
+                // Add assistant placeholder
+                const assistantMsg = document.createElement('div');
+                assistantMsg.className = 'message assistant';
+                assistantMsg.id = 'assistant-message';
+                const content = document.createElement('div');
+                content.className = 'message-content';
+                content.id = 'assistant-content';
+                assistantMsg.appendChild(content);
+                messagesContainer.appendChild(assistantMsg);
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+            else if (data.type === 'chunk') {
+                // Append text chunk
+                const content = document.getElementById('assistant-content');
+                if (content) {
+                    content.textContent += data.content;
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            }
+            else if (data.type === 'complete') {
+                // Mark as complete
+                const msg = document.getElementById('assistant-message');
+                if (msg) {
+                    msg.classList.remove('loading');
+                }
+                sendBtn.disabled = false;
+                messageInput.focus();
+            }
+            else if (data.type === 'error') {
+                addMessage(data.content, 'assistant', true);
+                sendBtn.disabled = false;
+            }
+            else if (data.type === 'cleared') {
+                messagesContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👋</div><div>Start a conversation!</div></div>';
+            }
+        }
+
+        // Add message to UI
+        function addMessage(content, role, isError = false) {
+            // Clear empty state if present
+            if (messagesContainer.querySelector('.empty-state')) {
+                messagesContainer.innerHTML = '';
+            }
+
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${role}`;
+            if (isError) messageEl.classList.add('error');
+
+            const contentEl = document.createElement('div');
+            contentEl.className = 'message-content';
+            contentEl.textContent = content;
+
+            messageEl.appendChild(contentEl);
+
+            const timeEl = document.createElement('div');
+            timeEl.className = 'message-time';
+            timeEl.textContent = new Date().toLocaleTimeString();
+            messageEl.appendChild(timeEl);
+
+            messagesContainer.appendChild(messageEl);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Load conversation history
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/session/${sessionId}/history?limit=50`);
+                const data = await response.json();
+
+                if (data.history && data.history.length > 0) {
+                    messagesContainer.innerHTML = '';
+                    data.history.forEach(msg => {
+                        addMessage(msg.content, msg.role);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        // Send message
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+
+            if (!message) {
+                showStatus('Please enter a message', true);
+                return;
+            }
+
+            if (!isConnected) {
+                showStatus('Not connected to server', true);
+                return;
+            }
+
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            messageInput.value = '';
+            charCount.textContent = '0';
+
+            // Send via WebSocket
+            ws.send(JSON.stringify({
+                type: 'message',
+                content: message
+            }));
+        }
+
+        // Clear history
+        async function clearHistory() {
+            if (!confirm('Clear all messages? This cannot be undone.')) return;
+
+            try {
+                await fetch(`${API_BASE_URL}/session/${sessionId}/clear`, {
+                    method: 'POST'
+                });
+
+                ws.send(JSON.stringify({
+                    type: 'clear'
+                }));
+
+                messageInput.disabled = false;
+                showStatus('Cleared', false);
+            } catch (error) {
+                showStatus('Error clearing history', true);
+                console.error(error);
+            }
+        }
+
+        // Change language
+        async function changeLanguage(lang) {
+            localStorage.setItem('chatLanguage', lang);
+            updateWelcomeMessage(lang);
+
+            try {
+                const formData = new FormData();
+                formData.append('language', lang);
+                await fetch(`${API_BASE_URL}/session/${sessionId}/language`, {
+                    method: 'POST',
+                    body: formData
+                });
+                showStatus(`Language changed to ${lang === 'en' ? 'English' : 'Deutsch'}`, false);
+            } catch (error) {
+                console.error('Error changing language:', error);
+            }
+        }
+
+        // Change model
+
+        // Show status message
+        function showStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.classList.add('show');
+            if (isError) {
+                statusEl.classList.add('error');
+            } else {
+                statusEl.classList.remove('error');
+            }
+            setTimeout(() => {
+                statusEl.classList.remove('show');
+            }, 3000);
+        }
+
+        // Event listeners
+        sendBtn.addEventListener('click', sendMessage);
+        clearBtn.addEventListener('click', clearHistory);
+
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        messageInput.addEventListener('input', () => {
+            charCount.textContent = messageInput.value.length;
+        });
+
+        languageSelect.addEventListener('change', (e) => {
+            changeLanguage(e.target.value);
+        });
+
+        // Model selection removed - uses automatic model ordering (backup compatible)
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
